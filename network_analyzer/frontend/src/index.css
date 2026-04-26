@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+body {
+  background-color: #0f172a;
+  color: #f8fafc;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}

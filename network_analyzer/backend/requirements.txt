@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+pyshark
+websockets
+pandas
+scikit-learn
+pygeoip
+nest_asyncio
+python-multipart
+psutil
+python-dotenv
+httpx
+motor
