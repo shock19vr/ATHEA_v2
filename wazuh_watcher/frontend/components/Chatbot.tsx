@@ -49,6 +49,7 @@ const SUGGESTED_QUESTIONS = [
 
 export default function Chatbot({ data }: Props) {
   const [open, setOpen]           = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [messages, setMessages]   = useState<DisplayMessage[]>([]);
   const [history, setHistory]     = useState<ChatMessage[]>([]);
   const [input, setInput]         = useState('');
@@ -153,12 +154,11 @@ export default function Chatbot({ data }: Props) {
 
       {/* ── Chat Panel ────────────────────────────────────────────────────── */}
       {open && (
-        <div className="chatbot-panel" role="dialog" aria-label="ATHEA AI Chatbot">
+        <div className={`chatbot-panel ${isExpanded ? 'chatbot-expanded' : ''}`} role="dialog" aria-label="ATHEA AI Chatbot">
 
           {/* Header */}
           <div className="chatbot-header">
             <div className="chatbot-header-left">
-              <div className="chatbot-avatar">🛡</div>
               <div>
                 <div className="chatbot-title">ATHEA AI Analyst</div>
                 <div className="chatbot-subtitle">
@@ -169,9 +169,17 @@ export default function Chatbot({ data }: Props) {
               </div>
             </div>
             <div className="chatbot-header-actions">
+              <button
+                className="chatbot-action-btn"
+                onClick={() => setIsExpanded(v => !v)}
+                title={isExpanded ? "Collapse" : "Expand"}
+                aria-label={isExpanded ? "Collapse" : "Expand"}
+              >
+                {isExpanded ? "Collapse" : "Expand"}
+              </button>
               {messages.length > 0 && (
                 <button
-                  className="chatbot-clear-btn"
+                  className="chatbot-action-btn"
                   onClick={clearChat}
                   title="Clear conversation"
                   aria-label="Clear conversation"
@@ -201,7 +209,6 @@ export default function Chatbot({ data }: Props) {
           <div className="chatbot-messages" id="chatbot-messages">
             {messages.length === 0 && !loading && (
               <div className="chatbot-welcome">
-                <div className="chatbot-welcome-icon">🔍</div>
                 <div className="chatbot-welcome-title">ATHEA Security Analyst</div>
                 <div className="chatbot-welcome-desc">
                   Ask me about detected anomalies, SHAP explanations, MITRE ATT&amp;CK tactics,

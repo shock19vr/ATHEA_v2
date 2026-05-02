@@ -98,7 +98,7 @@ export default function DashboardPage() {
 
                {data && (
                  <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                   Model: <strong>{data.model_used}</strong> | Sens: <strong>{(data.contamination_used * 100).toFixed(0)}%</strong> | v{data.pipeline_version}
+                   Model: <strong>{data.model_used}</strong> | Sens: <strong>{(data.contamination_used * 100).toFixed(0)}%</strong>
                  </span>
                )}
             </div>

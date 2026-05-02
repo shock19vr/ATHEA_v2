@@ -163,8 +163,6 @@ def _format_alert_for_prompt(alert: dict, is_anomaly: bool, index: int) -> str:
         if cluster_id is not None:
             lines.append(f"Cluster ID   : {cluster_id}")
         lines.append(f"MITRE Stage  : {mitre_stage or '—'}")
-        lines.append("SHAP Feature Contributions (why flagged):")
-        lines.append(_format_shap_contributions(shap_vals))
 
     if full_log:
         truncated = full_log[:400]
@@ -183,11 +181,12 @@ def build_system_prompt(pipeline_data: dict | None) -> str:
     base_persona = (
         "You are ATHEA, an expert AI security analyst embedded in the Wazuh-ATHEA dashboard. "
         "Your role is to help SOC analysts understand security anomalies detected by an ensemble "
-        "ML model (Isolation Forest + Local Outlier Factor) with SHAP explainability.\n\n"
+        "ML model.\n\n"
         "When answering:\n"
         "- Be specific and reference actual data from the alerts provided below.\n"
-        "- Explain SHAP feature contributions in plain English (what the feature means, "
-        "why a high/low value is suspicious).\n"
+        "- Provide your own expert opinion on whether an anomaly is a genuine threat or a false positive.\n"
+        "- If an anomaly appears to be a false positive (e.g., routine system updates, normal administrative tasks), explicitly state your reasoning.\n"
+        "- Do NOT output or rely on SHAP values. Base your analysis on raw event data, rule descriptions, logs, and your own cybersecurity knowledge.\n"
         "- Correlate anomalies with normal logs to highlight what makes the flagged events "
         "stand out from the baseline.\n"
         "- Map findings to MITRE ATT&CK tactics when available.\n"
@@ -274,8 +273,7 @@ def build_system_prompt(pipeline_data: dict | None) -> str:
         "When explaining anomalies, compare them against the normal baseline above. "
         "For example:\n"
         "  - If a normal alert has RuleLevel 3 and the anomaly has RuleLevel 14, explain the difference.\n"
-        "  - If SHAP shows IsFailedLogin=1 as the top contributor, compare the failed login ratio "
-        "    in the anomaly vs the normal baseline.\n"
+        "  - Check the raw log and command line for routine administrative tasks (like apt/dpkg installations) that might be false positives.\n"
         "  - If LogEntropy is high in the anomaly but low in normals, suggest possible obfuscation.\n"
         "  - Reference cluster IDs to group related anomalies into attack campaigns.\n"
         "  - Use MITRE stages to narrate the attack kill chain if multiple stages appear.\n"
@@ -292,8 +290,7 @@ def build_system_prompt(pipeline_data: dict | None) -> str:
         + correlation_hint
         + "\n\n"
         + "Answer the analyst's question below using the data provided above. "
-        "Be precise, cite specific alert details, and translate technical SHAP/ML "
-        "jargon into actionable security insights.\n"
+        "Be precise, cite specific alert details, and provide your own expert opinion on the threat level.\n"
     )
 
     return full_prompt

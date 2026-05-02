@@ -529,6 +529,17 @@ tbody tr:not(.is-anomaly) td:first-child {
   display: flex;
   flex-direction: column;
   animation: chat-panel-in 0.2s ease;
+  transition: width 0.3s ease, right 0.3s ease, height 0.3s ease, bottom 0.3s ease, max-height 0.3s ease, max-width 0.3s ease;
+}
+
+.chatbot-panel.chatbot-expanded {
+  width: 70vw;
+  max-width: none;
+  right: 15vw;
+  bottom: 5vh;
+  height: 90vh;
+  max-height: none;
+  animation: none;
 }
 
 /* Header */
@@ -573,7 +584,7 @@ tbody tr:not(.is-anomaly) td:first-child {
   align-items: center;
   gap: 6px;
 }
-.chatbot-clear-btn {
+.chatbot-action-btn {
   font-size: 11px;
   color: rgba(255,255,255,0.7);
   background: none;
@@ -583,7 +594,7 @@ tbody tr:not(.is-anomaly) td:first-child {
   font-family: var(--font-sans);
   transition: color 0.15s, border-color 0.15s;
 }
-.chatbot-clear-btn:hover { color: #fff; border-color: rgba(255,255,255,0.6); }
+.chatbot-action-btn:hover { color: #fff; border-color: rgba(255,255,255,0.6); }
 .chatbot-close-btn {
   width: 26px;
   height: 26px;
