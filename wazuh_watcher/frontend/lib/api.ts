@@ -52,3 +52,38 @@ export async function sendChatMessage(
   }
   return res.json();
 }
+
+export async function generateReport(): Promise<{ report: string }> {
+  const res = await fetch(`${API_BASE}/api/report`, {
+    method: 'POST',
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Report API ${res.status}: ${text}`);
+  }
+  return res.json();
+}
+
+export async function downloadReportDocx(reportText: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/report/docx`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ report_text: reportText }),
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`DOCX Download API ${res.status}: ${text}`);
+  }
+  
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'Intelligence_Report.docx';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+}

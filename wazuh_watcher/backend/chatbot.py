@@ -8,11 +8,14 @@ by correlating anomalous vs normal behaviour.
 
 import logging
 import os
+import io
+import re
 from typing import Any
 
 import google.generativeai as genai
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 load_dotenv()
@@ -46,6 +49,14 @@ class ChatResponse(BaseModel):
     reply: str
     model: str
     context_loaded: bool
+
+
+class ReportResponse(BaseModel):
+    report: str
+
+
+class DocxRequest(BaseModel):
+    report_text: str
 
 
 # ── Feature name → human-readable description ───────────────────────────────
@@ -296,6 +307,67 @@ def build_system_prompt(pipeline_data: dict | None) -> str:
     return full_prompt
 
 
+def build_report_prompt(pipeline_data: dict | None) -> str:
+    """Build the prompt for generating the Security Anomaly Intelligence Report."""
+    if not pipeline_data:
+        return "You are an AI security analyst. The user requested a report, but no data is available yet."
+
+    import datetime
+    import random
+    import string
+    now = datetime.datetime.now()
+    date_str = now.strftime("%Y%m%d")
+    time_str = now.strftime("%H%M")
+    random_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+    report_id = f"{date_str}{random_str}{time_str}"
+
+    minutes = pipeline_data.get("minutes_back", 60)
+    start_time = now - datetime.timedelta(minutes=minutes)
+    time_window = f"{start_time.strftime('%H:%M')} - {now.strftime('%H:%M')}"
+    pipeline_ver = pipeline_data.get("pipeline_version", "unknown")
+    
+    # Use the same formatting logic as the system prompt to get context
+
+    # Use the same formatting logic as the system prompt to get context
+    base_context = build_system_prompt(pipeline_data)
+
+    report_instructions = f"""
+Generate a formal "Security Anomaly Intelligence Report" exactly matching the structure below. Use the provided pipeline metadata and alert context to fill in the details. Do NOT output markdown code blocks around the entire response.
+
+Structure:
+Security Anomaly Intelligence Report
+Reporting Window: {time_window}
+Report ID: {report_id}
+Pipeline Version: {pipeline_ver}
+
+1. Executive Summary
+[Summarize total alerts, anomalies, rate against baseline, primary tactical threats, and any clusters of interest.]
+
+2. Threat Landscape (MITRE ATT&CK)
+[List the anomalous behavior mapped to adversary lifecycle stages and instances.]
+
+3. Technical Deep-Dive: High-Interest Anomaly
+[Pick the most critical anomaly. Detail Document ID, Timestamp, Event Context, and SHAP Feature Contribution (Direction, Impact, Insight) as requested.]
+
+4. Plain-English Analysis Layer
+[Provide What it means, Why it happened, When it's Serious, and When it's Harmless for the deep-dive anomaly.]
+
+5. Observations & False Positive Analysis
+[Discuss False Positive Candidates and True Positive Risks among the anomalies.]
+
+6. Recommended Actions
+[Provide actionable Investigation, Tuning, and Validation steps.]
+
+FORMATTING RULES:
+- ONLY use bold (**text**) for the main numbered headings (e.g., **1. Executive Summary**, **2. Threat Landscape**, etc.).
+- DO NOT use bold anywhere else in the document.
+- DO NOT use italics for sentences, paragraphs, or general text analysis.
+- ONLY use italics (*text*) strictly for short terminology, pointer names, keys, or feature names (e.g., *SessionEnv*, *Event ID 6003*).
+"""
+    return base_context + "\n\n" + report_instructions
+
+
+
 def _convert_history_to_gemini(history: list[ChatMessage]) -> list[dict[str, Any]]:
     """Convert our ChatMessage list to the format Gemini expects."""
     gemini_history = []
@@ -359,3 +431,139 @@ async def chat(request: ChatRequest):
         model=GEMINI_MODEL,
         context_loaded=context_loaded,
     )
+
+
+@router.post("/api/report", response_model=ReportResponse)
+async def generate_report():
+    """
+    Generate a formal Security Anomaly Intelligence Report using Gemini.
+    """
+    from main import _state as app_state
+
+    pipeline_data: dict | None = app_state.get("cached_results")
+
+    if not _gemini_ready:
+        raise HTTPException(
+            status_code=503,
+            detail="Gemini API key not configured. Please set GEMINI_API_KEY in your .env file.",
+        )
+
+    prompt = build_report_prompt(pipeline_data)
+
+    try:
+        model = genai.GenerativeModel(model_name=GEMINI_MODEL)
+        response = model.generate_content(prompt)
+        reply_text = response.text
+    except Exception as exc:
+        logger.error(f"Gemini API error during report generation: {exc}", exc_info=True)
+        raise HTTPException(
+            status_code=502,
+            detail=f"Gemini API error: {str(exc)}",
+        )
+
+    return ReportResponse(report=reply_text)
+
+
+def generate_docx_from_markdown(md_text: str) -> io.BytesIO:
+    """Convert basic markdown text to a professionally styled DOCX file."""
+    try:
+        from docx import Document
+        from docx.shared import Pt, RGBColor
+        from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+    except ImportError:
+        raise RuntimeError("python-docx is not installed.")
+
+    doc = Document()
+    
+    # Set default font
+    style = doc.styles['Normal']
+    font = style.font
+    font.name = 'Calibri'
+    font.size = Pt(11)
+
+    lines = md_text.split('\n')
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+            
+        if line.startswith('Security Anomaly Intelligence Report'):
+            p = doc.add_paragraph()
+            p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+            run = p.add_run(line)
+            run.bold = True
+            run.font.size = Pt(16)
+            run.font.color.rgb = RGBColor(0, 51, 102) # Dark blue
+            continue
+            
+        # Headings
+        if line.startswith('### '):
+            p = doc.add_paragraph()
+            run = p.add_run(line[4:])
+            run.bold = True
+            run.font.size = Pt(12)
+            run.font.color.rgb = RGBColor(0, 51, 102)
+            continue
+        elif line.startswith('## '):
+            p = doc.add_paragraph()
+            run = p.add_run(line[3:])
+            run.bold = True
+            run.font.size = Pt(13)
+            run.font.color.rgb = RGBColor(0, 51, 102)
+            continue
+        elif line.startswith('# ') or (len(line) > 2 and line[0].isdigit() and line[1:3] == '. '):
+            # Also treat "1. Executive Summary" as a header
+            p = doc.add_paragraph()
+            if line.startswith('# '):
+                run = p.add_run(line[2:])
+            else:
+                run = p.add_run(line)
+            run.bold = True
+            run.font.size = Pt(14)
+            run.font.color.rgb = RGBColor(0, 51, 102)
+            continue
+            
+        # Lists
+        if line.startswith('- ') or line.startswith('* '):
+            p = doc.add_paragraph(style='List Bullet')
+            text = line[2:]
+        else:
+            p = doc.add_paragraph()
+            text = line
+            
+        # Parse bold (**text**) and italic (*text*)
+        parts = re.split(r'(\*\*.*?\*\*)', text)
+        for part in parts:
+            if part.startswith('**') and part.endswith('**'):
+                run = p.add_run(part[2:-2])
+                run.bold = True
+            else:
+                subparts = re.split(r'(\*[^*\n]+\*)', part)
+                for subpart in subparts:
+                    if subpart.startswith('*') and subpart.endswith('*') and len(subpart) > 2:
+                        run = p.add_run(subpart[1:-1])
+                        run.italic = True
+                    else:
+                        p.add_run(subpart)
+
+    f = io.BytesIO()
+    doc.save(f)
+    f.seek(0)
+    return f
+
+
+@router.post("/api/report/docx")
+async def download_docx(req: DocxRequest):
+    """Generate a downloadable DOCX file from report text."""
+    try:
+        file_stream = generate_docx_from_markdown(req.report_text)
+        from fastapi.responses import Response
+        return Response(
+            content=file_stream.getvalue(),
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": "attachment; filename=Intelligence_Report.docx"}
+        )
+    except Exception as exc:
+        logger.error(f"Error generating DOCX: {exc}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))

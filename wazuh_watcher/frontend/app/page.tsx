@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Alert, PipelineResult, ApiStatus } from '@/types';
-import { fetchStatus, triggerAnalysis } from '@/lib/api';
+import { fetchStatus, triggerAnalysis, generateReport } from '@/lib/api';
 import StatsBar from '@/components/StatsBar';
 import AnomalyTable from '@/components/AnomalyTable';
 import LogDetailDrawer from '@/components/LogDetailDrawer';
 import AnalyticsRow from '@/components/AnalyticsRow';
 import DistributionCharts from '@/components/DistributionCharts';
 import Chatbot from '@/components/Chatbot';
+import ReportModal from '@/components/ReportModal';
 
 const POLL_MS = 60_000;
 
@@ -21,6 +22,9 @@ export default function DashboardPage() {
   const [error, setError]             = useState<string | null>(null);
   const [minutesBack, setMinutesBack] = useState(60);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [reportText, setReportText] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setRefreshing(true);
@@ -83,6 +87,20 @@ export default function DashboardPage() {
 
   const anomalies = data?.alerts.filter(a => a.anomaly === 1) ?? [];
 
+  const handleGenerateReport = async () => {
+    setIsGeneratingReport(true);
+    setError(null);
+    try {
+      const res = await generateReport();
+      setReportText(res.report);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(`Report generation failed: ${msg}`);
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
   return (
     <>
       <div className="dashboard-layout">
@@ -132,9 +150,9 @@ export default function DashboardPage() {
                 disabled={isRefreshing}
                 style={{
                   padding: '6px 14px',
-                  border: '1px solid var(--primary)',
-                  background: 'var(--primary)',
-                  color: '#ffffff',
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg-surface)',
+                  color: 'var(--text-primary)',
                   fontSize: 12, display: 'flex', alignItems: 'center', gap: 6,
                   opacity: isRefreshing ? 0.5 : 1,
                   cursor: isRefreshing ? 'not-allowed' : 'pointer',
@@ -143,6 +161,25 @@ export default function DashboardPage() {
                 aria-label="Refresh data now"
               >
                 {isRefreshing ? 'Refreshing…' : `Refresh (${countdown}s)`}
+              </button>
+
+              <button
+                id="generate-report-btn"
+                onClick={handleGenerateReport}
+                disabled={isGeneratingReport || !data}
+                style={{
+                  padding: '6px 14px',
+                  border: '1px solid var(--primary)',
+                  background: 'var(--primary)',
+                  color: '#ffffff',
+                  fontSize: 12, display: 'flex', alignItems: 'center', gap: 6,
+                  opacity: (isGeneratingReport || !data) ? 0.5 : 1,
+                  cursor: (isGeneratingReport || !data) ? 'not-allowed' : 'pointer',
+                  fontWeight: 500
+                }}
+                aria-label="Generate Report"
+              >
+                {isGeneratingReport ? 'Generating…' : 'Generate Report'}
               </button>
             </div>
           </header>
@@ -251,6 +288,13 @@ export default function DashboardPage() {
         <LogDetailDrawer
           alert={selectedAlert}
           onClose={() => setSelected(null)}
+        />
+      )}
+
+      {reportText && (
+        <ReportModal
+          reportText={reportText}
+          onClose={() => setReportText(null)}
         />
       )}
 
