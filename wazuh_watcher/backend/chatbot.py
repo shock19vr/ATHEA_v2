@@ -332,37 +332,37 @@ def build_report_prompt(pipeline_data: dict | None) -> str:
     base_context = build_system_prompt(pipeline_data)
 
     report_instructions = f"""
-Generate a formal "Security Anomaly Intelligence Report" exactly matching the structure below. Use the provided pipeline metadata and alert context to fill in the details. Do NOT output markdown code blocks around the entire response.
+Generate a formal "Security Anomaly Intelligence Report" exactly matching the structure below. Focus entirely on providing in-depth, professional explanations of the security context, attack narratives, and practical implications. Do NOT mention machine learning models, algorithms, anomaly scores, SHAP values, or training metrics. Explain the situation as an elite human security analyst would. Do NOT output markdown code blocks around the entire response.
 
 Structure:
 Security Anomaly Intelligence Report
 Reporting Window: {time_window}
 Report ID: {report_id}
-Pipeline Version: {pipeline_ver}
 
 1. Executive Summary
-[Summarize total alerts, anomalies, rate against baseline, primary tactical threats, and any clusters of interest.]
+[Provide a comprehensive, high-level professional summary of the security situation. Use descriptive bullet points to thoroughly explain the real-world impact, the nature of the detected threats, and their broader significance to the organization. Do not use model metrics.]
 
-2. Threat Landscape (MITRE ATT&CK)
-[List the anomalous behavior mapped to adversary lifecycle stages and instances.]
+2. Threat Narrative & MITRE ATT&CK
+[Provide an in-depth explanation of the potential attack narrative. Use bullet points to map observed behaviors to MITRE ATT&CK stages (Tactics and Techniques). Professionally explain *how* these techniques work together and *what* the adversary's ultimate objective likely is.]
 
-3. Technical Deep-Dive: High-Interest Anomaly
-[Pick the most critical anomaly. Detail Document ID, Timestamp, Event Context, and SHAP Feature Contribution (Direction, Impact, Insight) as requested.]
+3. Technical & Behavioral Deep-Dive
+[Pick the most critical anomaly. Use descriptive bullet points to provide extensive technical details. Explicitly list out specific Event IDs, process names, command lines, IP addresses, user accounts, and file paths involved. For every technical detail provided, include a professional explanation of its function and why it is suspicious in this context.]
 
-4. Plain-English Analysis Layer
-[Provide What it means, Why it happened, When it's Serious, and When it's Harmless for the deep-dive anomaly.]
+4. Plain-English Explanation
+[Provide a highly detailed, professional explanation of the deep-dive anomaly using bullet points: Explain exactly what this activity means in plain English. Why did the system generate this alert? Thoroughly explain under what circumstances this behavior represents a critical threat, and contrast it with scenarios where it might be a routine IT administrative operation.]
 
-5. Observations & False Positive Analysis
-[Discuss False Positive Candidates and True Positive Risks among the anomalies.]
+5. Analyst Observations & False Positive Analysis
+[Provide your expert, detailed assessment using professional pointers. Thoroughly explain whether these are likely true positive threats or false positives. Provide deep reasoning based on the system logs, user context, and typical enterprise environments, avoiding any reference to model confidence.]
 
 6. Recommended Actions
-[Provide actionable Investigation, Tuning, and Validation steps.]
+[Provide highly detailed, actionable, and concrete steps for investigation, mitigation, and remediation formatted as a clear bulleted list. Explain *why* each action is recommended.]
 
 FORMATTING RULES:
-- ONLY use bold (**text**) for the main numbered headings (e.g., **1. Executive Summary**, **2. Threat Landscape**, etc.).
-- DO NOT use bold anywhere else in the document.
+- Use bullet points extensively across all sections. Ensure each bullet point contains a thorough, multi-sentence professional explanation rather than just a brief note.
+- ONLY use bold (**text**) for the main numbered headings (e.g., **1. Executive Summary**) and key technical terms within bullet points (e.g., **Event ID 4688**, **powershell.exe**).
+- DO NOT use bold for entire sentences or paragraphs.
 - DO NOT use italics for sentences, paragraphs, or general text analysis.
-- ONLY use italics (*text*) strictly for short terminology, pointer names, keys, or feature names (e.g., *SessionEnv*, *Event ID 6003*).
+- ONLY use italics (*text*) strictly for short terminology, pointer names, keys, or feature names.
 """
     return base_context + "\n\n" + report_instructions
 
