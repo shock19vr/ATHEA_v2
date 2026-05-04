@@ -149,6 +149,19 @@ async def latest():
     return _state["cached_results"]
 
 
+@app.get("/api/anomalies", tags=["Pipeline"])
+async def get_anomalies():
+    if _state["cached_results"] is None:
+        raise HTTPException(
+            status_code=503,
+            detail="No results yet — pipeline is still running its first cycle."
+        )
+    
+    results = _state["cached_results"].copy()
+    results["alerts"] = [a for a in results.get("alerts", []) if a.get("anomaly", 0) == 1]
+    return results
+
+
 @app.get("/api/status", tags=["System"])
 async def status():
     return {
